@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <title>address research</title>
+</head>
+
+<body>
+    <h1 id="h1">address research</h1>
+    <form>
+        <table>
+            <tbody>
+                <tr>
+                    <th>郵便番号</th>
+                    <td>
+                        <input id="input" class="zipcode" type="text" maxlength="7"
+                            oninput="value = value.replace(/[^0-9]+/i,'');" / name="zipcode" value="8030813">
+                        <button id="search" type="button">住所検索</button>
+                        <p id="error"></p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>住所</th>
+                    <td><input id="address1" type="text" name="address1" value="福岡県北九州市小倉北区城内">
+                        <button id="get" type="button">Map検索</button>
+                        <p id="error"></p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </form>
+
+    <div id="main">
+        <div id="myMap" style='position:relative;width:600px;height:400px;'></div>
+    </div>
+
+</body>
+<script src='https://www.bing.com/api/maps/mapcontrol?callback=GetMap&key=' async defer></script>
+<script>
+    let api = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=';
+
+
+    $('#search').on('click', function () {
+        var input = $('#input');
+        var param = input.val().replace("-", ""); //入力された郵便番号から「-」を削除
+        let requestUrl = api + param;
+        axios
+            .get(requestUrl)
+            .then(function (response) {
+                // リクエスト成功時の処理（responseに結果が入っている）
+                // 郵便APIからデータ取得
+                console.log(response.data.results);
+                const address = response.data.results[0].address1 + response.data.results[0].address2 + response.data.results[0].address3
+                // 住所を表示
+                $('#address1').val(address);
+            })
+            .catch(function (error) {
+                // リクエスト失敗時の処理（errorにエラー内容が入っている）
+                console.log(error);
+            })
+            .finally(function () {
+            });
+    });
+
+    /**
+    * 読み込んだらGetMap()を実行
+    */
+    $(document).ready(function () {
+        let map;             //MapObject用
+        let searchManager;   //SearchObject用
+
+        function GetMap() {
+            //Map生成
+            map = new Microsoft.Maps.Map('#myMap', {
+                zoom: 20,
+                mapTypeId: Microsoft.Maps.MapTypeId.canvasLight
+            });
+            //検索モジュール指定
+            Microsoft.Maps.loadModule('Microsoft.Maps.Search', function () {
+                //searchManagerインスタンス化（Geocode,ReverseGeocodeが使用可能になる）
+                searchManager = new Microsoft.Maps.Search.SearchManager(map);
+                //Geocode：住所から検索
+                geocodeQuery($("#address1").val());
+            });
+        }
+
+        /**
+         * 検索ボタンからマップ表示
+         */
+        $('#get').on('click', function () {
+            //4.Geocode:住所から検索
+            geocodeQuery($('#address1').val());
+        });
+
+        /**
+         * 住所から緯度経度を取得
+         */
+        function geocodeQuery(query) {
+            if (searchManager) {
+                //住所から緯度経度を検索
+                searchManager.geocode({
+                    where: query,       //検索文字列
+                    callback: function (r) { //検索結果を"( r )" の変数で取得
+                        //最初の検索取得結果をMAPに表示
+                        if (r && r.results && r.results.length > 0) {
+                            //Pushpinを立てる
+                            const pin = new Microsoft.Maps.Pushpin(r.results[0].location);
+                            map.entities.push(pin);
+                            //map表示位置を再設定
+                            map.setView({ bounds: r.results[0].bestView });
+                        }
+                    },
+                    errorCallback: function (e) {
+                        alert("見つかりません");
+                    }
+                });
+            }
+        }
+        // Bing Mapsの読み込み完了後にGetMap()を実行
+        window.GetMap = GetMap;
+        // Microsoft.Maps.Events.addHandler(map, 'ready', GetMap);
+    });
+
+</script>
+
+</html>
